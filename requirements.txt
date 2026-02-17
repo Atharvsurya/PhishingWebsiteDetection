@@ -1,0 +1,13 @@
+# Data Handling and Math
+pandas
+numpy
+
+# Machine Learning
+scikit-learn
+
+# Visualization
+matplotlib
+seaborn
+
+# Natural Language & URL Parsing
+nltk
