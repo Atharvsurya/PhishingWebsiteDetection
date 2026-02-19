@@ -1,22 +1,32 @@
-from sklearn.model_selection import train_test_split
 import pandas as pd
+import os
+import joblib
 
+# 1. Load your frozen model
+model = joblib.load('PRACTICE/practice_model/random_forest_v1.pkl')
+log_file = 'prediction_history.csv'
 
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
+def predict_and_recall(url):
+    # --- PART A: RECALL (Check Memory) ---
+    if os.path.exists(log_file):
+        history = pd.read_csv(log_file)
+        # Check if we've seen this URL before
+        if url in history['url'].values:
+            past_result = history[history['url'] == url]['label'].values[0]
+            return f"RECALLED: We already know this site is {past_result}."
 
-data = pd.read_csv('data/practice_data.csv')
+    # --- PART B: PREDICT (New Knowledge) ---
+    # Convert URL to features (assuming 'len' and 'dots')
+    features = pd.DataFrame([[len(url), url.count('-')]], columns=['len', 'dash'])
+    prediction = model.predict(features)[0]
+    result = "PHISHING" if prediction == 1 else "SAFE"
 
-X = data[['len','dash']]
-Y = data['label']
+    # --- PART C: STORE (Save to Memory) ---
+    new_entry = pd.DataFrame([[url, result]], columns=['url', 'label'])
+    # Append to CSV without overwriting
+    new_entry.to_csv(log_file, mode='a', header=not os.path.exists(log_file), index=False)
+    
+    return f"NEW PREDICTION: This site is {result}. Saved to memory."
 
-X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=102356)
-
-model = RandomForestClassifier(n_estimators=100, random_state=42)
-model.fit(X_train,Y_train)
-
-predictions = model.predict(X_test)
-
-accuracy = accuracy_score(Y_test,predictions)
-
-print(f"Model Accuracy on 20-link set: {accuracy * 100}%")
+# Test it
+print(predict_and_recall("verify-login-bank.com"))
