@@ -11,3 +11,6 @@ seaborn
 
 # Natural Language & URL Parsing
 nltk
+
+#for running notebook
+ipykernel
