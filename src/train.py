@@ -19,7 +19,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 # Logistic Regression
 lr = LogisticRegression(max_iter=1000)
 lr.fit(X_train, y_train)
-joblib.dump(lr,'models/logistic_v2.pkl')
+joblib.dump(lr,'models/temp/logistic_v2.pkl')
 
 lr_pred = lr.predict(X_test)
 accuracy = accuracy_score(y_test, lr_pred)
@@ -29,7 +29,7 @@ print("\nLogisticRegression Classification Report:\n", classification_report(y_t
 #Random Forest
 rf = RandomForestClassifier(n_estimators= 100)
 rf.fit(X_train,y_train)
-joblib.dump(rf,'models/random_forest_v2.pkl')
+joblib.dump(rf,'models/temp/random_forest_v2.pkl')
 
 rf_pred = rf.predict(X_test)
 print(f"RandomForest Accuracy: {accuracy_score(y_test, rf_pred) * 100:.2f}%")
@@ -38,7 +38,7 @@ print("\nRandomForestClassification Report:\n", classification_report(y_test, rf
 # SVM
 svm = SVC(kernel='rbf')
 svm.fit(X_train, y_train)
-joblib.dump(svm,'models/svm_v2.pkl')
+joblib.dump(svm,'models/temp/svm_v2.pkl')
 
 svm_pred = svm.predict(X_test)
 print(f"SVM Accuracy: {accuracy_score(y_test, svm_pred) * 100:.2f}%")
@@ -54,7 +54,7 @@ sns.heatmap(lrcm, annot=True, fmt='d', cmap='Blues')
 plt.xlabel('Predicted')
 plt.ylabel('Actual')
 plt.title('Confusion Matrix for LogisticRegression')
-plt.savefig("models/result/v2/logistic_v2.png")
+plt.savefig("models/temp.png")
 plt.close()
 
 rfcm = confusion_matrix(y_test, rf_pred)
@@ -63,7 +63,7 @@ sns.heatmap(rfcm, annot=True, fmt='d', cmap='Blues')
 plt.xlabel('Predicted')
 plt.ylabel('Actual')
 plt.title('Confusion Matrix for RandomForest')
-plt.savefig("models/result/v2/random_forest_v2.png")
+plt.savefig("models/temp.png")
 plt.close()
 
 svmcm = confusion_matrix(y_test, svm_pred)
@@ -72,5 +72,5 @@ sns.heatmap(svmcm, annot=True, fmt='d', cmap='Blues')
 plt.xlabel('Predicted')
 plt.ylabel('Actual')
 plt.title('Confusion Matrix for SVM')
-plt.savefig("models/result/v2/svm_v2.png")
+plt.savefig("models/temp.png")
 plt.close()
