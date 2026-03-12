@@ -20,9 +20,9 @@ models = {
     "SVM":                  joblib.load(os.path.join(BASE, "../models/svm.pkl")),
 }
 MODEL_ACCURACIES = {
-    "Random Forest":        93.46,
-    "Logistic Regression":  82.42,
-    "SVM":                  85.81,
+    "Random Forest":        91.89,
+    "Logistic Regression":  82.55,
+    "SVM":                  87.12,
 }
 BEST_MODEL = "Random Forest"
 
@@ -37,6 +37,39 @@ BRANDS = ['paypal','amazon','google','facebook','apple','microsoft','netflix',
           'citibank','dropbox','adobe','yahoo','outlook','office365','steam',
           'youtube','whatsapp','tiktok','snapchat']
 
+# ── Whitelist of trusted domains ───────────────────────────────────────────────
+WHITELIST = [
+    # AI & Tech
+    'claude.ai', 'anthropic.com', 'openai.com', 'chatgpt.com', 'gemini.google.com',
+    # Google
+    'google.com', 'youtube.com', 'gmail.com', 'drive.google.com', 'docs.google.com',
+    'maps.google.com', 'play.google.com',
+    # Microsoft
+    'microsoft.com', 'outlook.com', 'office.com', 'github.com', 'linkedin.com',
+    'bing.com', 'azure.com',
+    # Social Media
+    'facebook.com', 'instagram.com', 'twitter.com', 'x.com', 'tiktok.com',
+    'snapchat.com', 'pinterest.com', 'reddit.com', 'discord.com', 'telegram.org',
+    'whatsapp.com',
+    # Dev & Cloud
+    'stackoverflow.com', 'vercel.app', 'heroku.com', 'railway.app', 'netlify.app',
+    'amazonaws.com', 'cloudflare.com', 'digitalocean.com',
+    # Shopping & Finance
+    'amazon.com', 'ebay.com', 'paypal.com', 'stripe.com', 'shopify.com',
+    # Media & News
+    'wikipedia.org', 'netflix.com', 'spotify.com', 'apple.com', 'icloud.com',
+    # Other popular
+    'dropbox.com', 'zoom.us', 'slack.com', 'notion.so', 'figma.com',
+    'canva.com', 'medium.com', 'substack.com',
+]
+
+def is_whitelisted(url: str) -> bool:
+    hostname = urlparse(url).netloc.lower()
+    if ':' in hostname:
+        hostname = hostname.split(':')[0]
+    return any(hostname == w or hostname.endswith('.' + w) for w in WHITELIST)
+
+# ── Feature extraction (34 features) ──────────────────────────────────────────
 def extract_features(url: str) -> dict:
     parsed   = urlparse(url)
     hostname = parsed.netloc.lower()
@@ -123,19 +156,38 @@ FEATURE_NAMES = [
 LABEL_MAP   = {0: "Legitimate", 1: "Phishing"}
 LABEL_COLOR = {0: "safe",       1: "danger"}
 
+# ── Routes ─────────────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
     return render_template("index.html", model_accuracies=MODEL_ACCURACIES)
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    data = request.get_json(force=True)
-    url  = data.get("url", "").strip()
+    data           = request.get_json(force=True)
+    url            = data.get("url", "").strip()
     selected_model = data.get("model", BEST_MODEL)
+
     if not url:
         return jsonify({"error": "No URL provided"}), 400
     if not url.startswith(("http://", "https://")):
         url = "http://" + url
+
+    # ── Whitelist check ────────────────────────────────────────────────────────
+    if is_whitelisted(url):
+        return jsonify({
+            "url":           url,
+            "model":         selected_model,
+            "prediction":    0,
+            "label":         "Legitimate",
+            "status":        "safe",
+            "confidence":    99.0,
+            "phishing_prob": 1.0,
+            "features":      {},
+            "flags":         [],
+            "note":          "✓ Trusted domain — whitelisted"
+        })
+    # ──────────────────────────────────────────────────────────────────────────
+
     try:
         features    = extract_features(url)
         feat_vec    = np.array([[features[f] for f in FEATURE_NAMES]])
@@ -181,6 +233,7 @@ def predict():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/compare", methods=["POST"])
 def compare():
     data = request.get_json(force=True)
@@ -189,6 +242,23 @@ def compare():
         return jsonify({"error": "No URL provided"}), 400
     if not url.startswith(("http://", "https://")):
         url = "http://" + url
+
+    # ── Whitelist check ────────────────────────────────────────────────────────
+    if is_whitelisted(url):
+        results = []
+        for name in models.keys():
+            results.append({
+                "model":         name,
+                "accuracy":      MODEL_ACCURACIES[name],
+                "prediction":    0,
+                "label":         "Legitimate",
+                "status":        "safe",
+                "confidence":    99.0,
+                "phishing_prob": 1.0,
+            })
+        return jsonify({"url": url, "results": results, "note": "✓ Trusted domain — whitelisted"})
+    # ──────────────────────────────────────────────────────────────────────────
+
     try:
         features    = extract_features(url)
         feat_vec    = np.array([[features[f] for f in FEATURE_NAMES]])
@@ -214,6 +284,7 @@ def compare():
         return jsonify({"url": url, "results": results})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=8080)
