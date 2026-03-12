@@ -13,9 +13,9 @@ app = Flask(__name__)
 BASE = os.path.dirname(__file__)
 scaler = joblib.load(os.path.join(BASE, "models/scaler.pkl"))
 models = {
-    "Random Forest":        joblib.load(os.path.join(BASE, "models/random_forest.pkl")),
-    "Logistic Regression":  joblib.load(os.path.join(BASE, "models/logistic.pkl")),
-    "SVM":                  joblib.load(os.path.join(BASE, "models/svm.pkl")),
+    "Random Forest":        joblib.load(os.path.join(BASE, "../models/random_forest.pkl")),
+    "Logistic Regression":  joblib.load(os.path.join(BASE, "../models/logistic.pkl")),
+    "SVM":                  joblib.load(os.path.join(BASE, "../models/svm.pkl")),
 }
 MODEL_ACCURACIES = {
     "Random Forest":        93.46,
@@ -24,7 +24,7 @@ MODEL_ACCURACIES = {
 }
 BEST_MODEL = "Random Forest"
 
-shortners_path = os.path.join(BASE, "data/shortners.csv")
+shortners_path = os.path.join(BASE, "../data/datasets/shortners.csv")
 try:
     SHORTENERS = set(pd.read_csv(shortners_path).iloc[:, 0].str.strip().tolist())
 except Exception:

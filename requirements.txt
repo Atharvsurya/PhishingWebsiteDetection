@@ -1,9 +1,9 @@
 # Data Handling and Math
-pandas
-numpy
+pandas==2.2.2
+numpy==1.26.4
 
 # Machine Learning
-scikit-learn
+scikit-learn==1.5.2
 
 # Visualization
 matplotlib
@@ -15,5 +15,5 @@ nltk
 #for running notebook
 ipykernel
 
-#For GUI
-flask
+flask==3.0.3
+joblib==1.4.2
