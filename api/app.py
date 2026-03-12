@@ -8,10 +8,12 @@ import os
 from urllib.parse import urlparse
 from collections import Counter
 
-app = Flask(__name__)
+app = Flask(__name__,
+    template_folder=os.path.join(os.path.dirname(__file__), "../phishing_app/templates")
+)
 
 BASE = os.path.dirname(__file__)
-scaler = joblib.load(os.path.join(BASE, "models/scaler.pkl"))
+scaler = joblib.load(os.path.join(BASE, "../models/scaler.pkl"))
 models = {
     "Random Forest":        joblib.load(os.path.join(BASE, "../models/random_forest.pkl")),
     "Logistic Regression":  joblib.load(os.path.join(BASE, "../models/logistic.pkl")),
