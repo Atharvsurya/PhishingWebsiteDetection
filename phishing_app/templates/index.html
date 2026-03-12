@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PhishGuard — URL Threat Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+/* ─── RESET & BASE ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #06080f;
+  --surface:  #0d1120;
+  --card:     #111827;
+  --border:   #1e2a3a;
+  --accent:   #00e5ff;
+  --safe:     #00ffaa;
+  --danger:   #ff3b5e;
+  --warn:     #ffaa00;
+  --muted:    #4a5568;
+  --text:     #e2e8f0;
+  --text2:    #8898b0;
+  --font-mono: 'Space Mono', monospace;
+  --font-sans: 'Syne', sans-serif;
+  --glow-safe:   0 0 20px rgba(0,255,170,.35);
+  --glow-danger: 0 0 20px rgba(255,59,94,.35);
+  --glow-accent: 0 0 30px rgba(0,229,255,.25);
+}
+
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── BACKGROUND GRID ───────────────────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background-image:
+    linear-gradient(rgba(0,229,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+}
+body::after {
+  content: '';
+  position: fixed;
+  top: -40%; left: 30%;
+  width: 800px; height: 800px;
+  background: radial-gradient(circle, rgba(0,229,255,.06) 0%, transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ─── LAYOUT ────────────────────────────────────────────────────────────────── */
+.wrap { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+/* ─── HEADER ────────────────────────────────────────────────────────────────── */
+header {
+  padding: 52px 0 36px;
+  text-align: center;
+}
+.logo-chip {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: rgba(0,229,255,.08);
+  border: 1px solid rgba(0,229,255,.2);
+  border-radius: 100px;
+  padding: 6px 18px 6px 12px;
+  margin-bottom: 28px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .12em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.logo-chip .dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+
+h1 {
+  font-size: clamp(2.4rem, 6vw, 3.6rem);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  line-height: 1.1;
+  background: linear-gradient(135deg, #fff 30%, var(--accent) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 16px;
+}
+.sub {
+  font-size: 1rem;
+  color: var(--text2);
+  max-width: 500px;
+  margin: 0 auto;
+  line-height: 1.65;
+}
+
+/* ─── MODEL STATS ────────────────────────────────────────────────────────────── */
+.stats-row {
+  display: flex; gap: 12px; justify-content: center;
+  flex-wrap: wrap;
+  margin: 36px 0;
+}
+.stat-chip {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-size: .82rem;
+  transition: border-color .2s;
+  cursor: default;
+}
+.stat-chip:hover { border-color: rgba(0,229,255,.3); }
+.stat-chip.best { border-color: rgba(0,255,170,.3); background: rgba(0,255,170,.05); }
+.stat-name { font-family: var(--font-mono); color: var(--text2); font-size: .75rem; }
+.stat-acc { font-weight: 700; font-size: 1rem; color: var(--safe); }
+.stat-chip.best .stat-acc { color: var(--safe); }
+.crown { font-size: .9rem; }
+
+/* ─── SCANNER CARD ───────────────────────────────────────────────────────────── */
+.scanner-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 36px 40px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+.scanner-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: .5;
+}
+
+.input-label {
+  font-size: .78rem;
+  font-family: var(--font-mono);
+  color: var(--text2);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.input-label .tag { color: var(--accent); }
+
+.url-input-row {
+  display: flex; gap: 12px;
+  margin-bottom: 20px;
+}
+.url-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 18px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: .92rem;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.url-input::placeholder { color: var(--muted); }
+.url-input:focus {
+  border-color: rgba(0,229,255,.5);
+  box-shadow: 0 0 0 3px rgba(0,229,255,.08);
+}
+
+.btn-scan {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 28px;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: .9rem;
+  cursor: pointer;
+  white-space: nowrap;
+  letter-spacing: .04em;
+  transition: opacity .2s, transform .15s, box-shadow .2s;
+}
+.btn-scan:hover { opacity: .9; transform: translateY(-1px); box-shadow: var(--glow-accent); }
+.btn-scan:active { transform: translateY(0); }
+.btn-scan:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+.model-select-row {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.model-label { font-size: .78rem; color: var(--text2); font-family: var(--font-mono); white-space: nowrap; }
+.model-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.model-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 14px;
+  color: var(--text2);
+  font-size: .78rem;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all .18s;
+  position: relative;
+}
+.model-btn:hover { border-color: rgba(0,229,255,.3); color: var(--text); }
+.model-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0,229,255,.07);
+}
+.model-btn .acc-badge {
+  font-size: .65rem; color: var(--safe); margin-left: 4px; opacity: .8;
+}
+
+.compare-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid rgba(255,170,0,.3);
+  color: var(--warn);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: .78rem;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all .18s;
+}
+.compare-btn:hover { background: rgba(255,170,0,.08); }
+
+/* ─── SCAN ANIMATION ─────────────────────────────────────────────────────────── */
+.scan-bar {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  border-radius: 2px;
+  margin: 20px 0 0;
+  width: 0%;
+  transition: width .05s linear;
+  display: none;
+}
+.scan-bar.running { display: block; }
+
+/* ─── RESULT CARD ────────────────────────────────────────────────────────────── */
+.result-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 36px 40px;
+  margin-bottom: 32px;
+  display: none;
+  animation: fadeUp .35s ease;
+}
+.result-card.visible { display: block; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.result-top { display: flex; align-items: flex-start; gap: 24px; margin-bottom: 28px; flex-wrap: wrap; }
+
+.verdict-badge {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center;
+  width: 110px; height: 110px; flex-shrink: 0;
+  border-radius: 16px;
+  font-weight: 800;
+  font-size: .9rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  transition: box-shadow .3s;
+}
+.verdict-badge.safe   { background: rgba(0,255,170,.1); color: var(--safe);   border: 1px solid rgba(0,255,170,.3);   box-shadow: var(--glow-safe); }
+.verdict-badge.danger { background: rgba(255,59,94,.1);  color: var(--danger); border: 1px solid rgba(255,59,94,.3);   box-shadow: var(--glow-danger); }
+.verdict-badge .vicon { font-size: 2rem; margin-bottom: 6px; }
+
+.verdict-info { flex: 1; min-width: 200px; }
+.verdict-label { font-size: 1.7rem; font-weight: 800; margin-bottom: 4px; }
+.verdict-label.safe   { color: var(--safe); }
+.verdict-label.danger { color: var(--danger); }
+.verdict-url {
+  font-family: var(--font-mono); font-size: .8rem; color: var(--text2);
+  word-break: break-all; margin-bottom: 14px;
+  background: var(--surface); border-radius: 8px; padding: 8px 12px;
+  border: 1px solid var(--border);
+}
+.verdict-meta { display: flex; gap: 20px; flex-wrap: wrap; }
+.meta-item { display: flex; flex-direction: column; gap: 3px; }
+.meta-key { font-size: .7rem; color: var(--text2); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
+.meta-val { font-size: .95rem; font-weight: 700; color: var(--text); }
+
+/* ─── CONFIDENCE BAR ─────────────────────────────────────────────────────────── */
+.conf-section { margin-bottom: 28px; }
+.conf-label { font-size: .78rem; color: var(--text2); font-family: var(--font-mono); margin-bottom: 10px; }
+.conf-bars { display: flex; flex-direction: column; gap: 10px; }
+.conf-bar-row { display: grid; grid-template-columns: 140px 1fr 60px; align-items: center; gap: 12px; }
+.conf-bar-name { font-size: .8rem; color: var(--text2); font-family: var(--font-mono); }
+.conf-bar-track { background: var(--surface); border-radius: 4px; height: 8px; overflow: hidden; }
+.conf-bar-fill { height: 100%; border-radius: 4px; transition: width .7s cubic-bezier(.17,.67,.35,1.2) .1s; }
+.conf-bar-fill.safe   { background: var(--safe); }
+.conf-bar-fill.danger { background: var(--danger); }
+.conf-bar-pct { font-size: .8rem; font-family: var(--font-mono); text-align: right; }
+.conf-bar-pct.safe   { color: var(--safe); }
+.conf-bar-pct.danger { color: var(--danger); }
+
+/* ─── FLAGS ──────────────────────────────────────────────────────────────────── */
+.flags-section { margin-bottom: 28px; }
+.section-title { font-size: .78rem; color: var(--text2); font-family: var(--font-mono); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 12px; }
+.flags-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+.flag-chip {
+  display: flex; align-items: center; gap: 7px;
+  background: rgba(255,59,94,.08);
+  border: 1px solid rgba(255,59,94,.25);
+  border-radius: 8px;
+  padding: 7px 13px;
+  font-size: .8rem;
+  color: #ff8fab;
+  animation: fadeChip .3s ease;
+}
+@keyframes fadeChip { from{opacity:0;transform:scale(.9)} to{opacity:1;transform:scale(1)} }
+.no-flags {
+  font-size: .85rem; color: var(--safe); display: flex; align-items: center; gap: 8px;
+  background: rgba(0,255,170,.07); border: 1px solid rgba(0,255,170,.2);
+  border-radius: 8px; padding: 10px 16px;
+}
+
+/* ─── FEATURE GRID ───────────────────────────────────────────────────────────── */
+.features-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 18px;
+  color: var(--text2);
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  cursor: pointer;
+  transition: all .18s;
+  width: 100%;
+  text-align: left;
+  display: flex; justify-content: space-between;
+}
+.features-toggle:hover { border-color: rgba(0,229,255,.3); color: var(--text); }
+.features-body { display: none; margin-top: 14px; }
+.features-body.open { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.feat-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.feat-name { font-size: .73rem; color: var(--text2); font-family: var(--font-mono); }
+.feat-val  { font-size: .82rem; font-weight: 700; color: var(--text); font-family: var(--font-mono); }
+.feat-val.risky { color: var(--danger); }
+
+/* ─── COMPARE TABLE ──────────────────────────────────────────────────────────── */
+.compare-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 36px 40px;
+  margin-bottom: 32px;
+  display: none;
+  animation: fadeUp .35s ease;
+}
+.compare-card.visible { display: block; }
+.compare-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+.compare-table th {
+  font-size: .73rem; font-family: var(--font-mono); color: var(--text2);
+  text-transform: uppercase; letter-spacing: .1em;
+  padding: 10px 16px; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.compare-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  font-size: .87rem;
+}
+.compare-table tr:last-child td { border-bottom: none; }
+.compare-table tr.highlight-row td { background: rgba(0,229,255,.04); }
+.badge-sm {
+  display: inline-block; padding: 3px 10px; border-radius: 6px;
+  font-size: .75rem; font-weight: 700; font-family: var(--font-mono);
+}
+.badge-sm.safe   { background: rgba(0,255,170,.12); color: var(--safe); }
+.badge-sm.danger { background: rgba(255,59,94,.12);  color: var(--danger); }
+
+/* ─── FOOTER ─────────────────────────────────────────────────────────────────── */
+footer {
+  text-align: center;
+  padding: 32px 0 48px;
+  font-size: .78rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+}
+footer span { color: var(--text2); }
+
+/* ─── ERROR TOAST ────────────────────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: #1a0a0f; border: 1px solid var(--danger); color: var(--danger);
+  padding: 12px 24px; border-radius: 12px; font-size: .85rem;
+  font-family: var(--font-mono); z-index: 99;
+  transition: transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+  opacity: 0; pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+/* ─── RESPONSIVE ─────────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .scanner-card, .result-card, .compare-card { padding: 24px 20px; }
+  .url-input-row { flex-direction: column; }
+  .btn-scan { width: 100%; }
+  .result-top { flex-direction: column; }
+  .verdict-badge { width: 80px; height: 80px; }
+  h1 { font-size: 2rem; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo-chip"><span class="dot"></span>AI Threat Intelligence</div>
+    <h1>PhishGuard</h1>
+    <p class="sub">Machine learning–powered URL scanner that detects phishing threats in real time using three trained models.</p>
+  </header>
+
+  <!-- MODEL STATS -->
+  <div class="stats-row">
+    {% for model, acc in model_accuracies.items() %}
+    <div class="stat-chip {% if model == 'Random Forest' %}best{% endif %}">
+      {% if model == 'Random Forest' %}<span class="crown">👑</span>{% endif %}
+      <div>
+        <div class="stat-name">{{ model }}</div>
+        <div class="stat-acc">{{ acc }}%</div>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="stat-chip">
+      <div>
+        <div class="stat-name">Training Samples</div>
+        <div class="stat-acc" style="color:var(--accent)">95,911</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCANNER CARD -->
+  <div class="scanner-card">
+    <div class="input-label"><span class="tag">$</span> enter_url_to_analyze</div>
+    <div class="url-input-row">
+      <input class="url-input" id="urlInput" type="text"
+             placeholder="https://example.com/path?query=value"
+             autocomplete="off" spellcheck="false"/>
+      <button class="btn-scan" id="scanBtn" onclick="runScan()">Scan URL</button>
+    </div>
+
+    <div class="model-select-row">
+      <span class="model-label">MODEL:</span>
+      <div class="model-btns" id="modelBtns">
+        <button class="model-btn active" data-model="Random Forest" onclick="selectModel(this)">
+          Random Forest <span class="acc-badge">87.1%</span>
+        </button>
+        <button class="model-btn" data-model="Logistic Regression" onclick="selectModel(this)">
+          Logistic Regression <span class="acc-badge">76.7%</span>
+        </button>
+        <button class="model-btn" data-model="SVM" onclick="selectModel(this)">
+          SVM <span class="acc-badge">78.9%</span>
+        </button>
+      </div>
+      <button class="compare-btn" onclick="runCompare()">⚖ Compare All</button>
+    </div>
+
+    <div class="scan-bar" id="scanBar"></div>
+  </div>
+
+  <!-- RESULT CARD -->
+  <div class="result-card" id="resultCard">
+    <div class="result-top">
+      <div class="verdict-badge" id="verdictBadge">
+        <span class="vicon" id="verdictIcon"></span>
+        <span id="verdictText"></span>
+      </div>
+      <div class="verdict-info">
+        <div class="verdict-label" id="verdictLabel"></div>
+        <div class="verdict-url" id="verdictUrl"></div>
+        <div class="verdict-meta" id="verdictMeta"></div>
+      </div>
+    </div>
+
+    <!-- Confidence Bars -->
+    <div class="conf-section" id="confSection">
+      <div class="conf-label">PROBABILITY BREAKDOWN</div>
+      <div class="conf-bars">
+        <div class="conf-bar-row">
+          <span class="conf-bar-name">Legitimate</span>
+          <div class="conf-bar-track"><div class="conf-bar-fill safe" id="barSafe" style="width:0%"></div></div>
+          <span class="conf-bar-pct safe" id="pctSafe">—</span>
+        </div>
+        <div class="conf-bar-row">
+          <span class="conf-bar-name">Phishing</span>
+          <div class="conf-bar-track"><div class="conf-bar-fill danger" id="barDanger" style="width:0%"></div></div>
+          <span class="conf-bar-pct danger" id="pctDanger">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Risk Flags -->
+    <div class="flags-section">
+      <div class="section-title">Risk Indicators</div>
+      <div class="flags-grid" id="flagsGrid"></div>
+    </div>
+
+    <!-- Feature Details -->
+    <div>
+      <button class="features-toggle" onclick="toggleFeatures()" id="featToggle">
+        <span>VIEW EXTRACTED FEATURES (19)</span><span id="featArrow">▼</span>
+      </button>
+      <div class="features-body" id="featuresBody"></div>
+    </div>
+  </div>
+
+  <!-- COMPARE CARD -->
+  <div class="compare-card" id="compareCard">
+    <div class="section-title">Model Comparison</div>
+    <div id="compareUrl" style="font-family:var(--font-mono);font-size:.8rem;color:var(--text2);margin-bottom:16px;word-break:break-all;"></div>
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th>Training Accuracy</th>
+          <th>Verdict</th>
+          <th>Confidence</th>
+          <th>Phishing Prob.</th>
+        </tr>
+      </thead>
+      <tbody id="compareBody"></tbody>
+    </table>
+  </div>
+
+  <footer>PhishGuard &mdash; <span>Logistic Regression · Random Forest · SVM</span> &mdash; Built with Flask + scikit-learn</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let selectedModel = 'Random Forest';
+
+function selectModel(btn) {
+  document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedModel = btn.dataset.model;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// Animated scan bar
+function animateScanBar(done) {
+  const bar = document.getElementById('scanBar');
+  bar.classList.add('running');
+  bar.style.width = '0%';
+  let w = 0;
+  const iv = setInterval(() => {
+    w = Math.min(w + (done ? 5 : 0.8), done ? 100 : 85);
+    bar.style.width = w + '%';
+    if (w >= 100) { clearInterval(iv); setTimeout(() => { bar.classList.remove('running'); bar.style.width='0%'; }, 400); }
+  }, 30);
+  return iv;
+}
+
+async function runScan() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) { showToast('⚠  Please enter a URL'); return; }
+
+  document.getElementById('scanBtn').disabled = true;
+  document.getElementById('resultCard').classList.remove('visible');
+  document.getElementById('compareCard').classList.remove('visible');
+
+  let scanIv;
+  let done = false;
+  scanIv = animateScanBar(false);
+
+  try {
+    const res = await fetch('/predict', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ url, model: selectedModel })
+    });
+    const data = await res.json();
+    done = true;
+    clearInterval(scanIv);
+    animateScanBar(true);
+
+    if (data.error) { showToast('Error: ' + data.error); return; }
+    renderResult(data);
+  } catch(e) {
+    showToast('Network error. Is the server running?');
+  } finally {
+    document.getElementById('scanBtn').disabled = false;
+  }
+}
+
+async function runCompare() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) { showToast('⚠  Please enter a URL first'); return; }
+
+  document.getElementById('compareCard').classList.remove('visible');
+  let iv = animateScanBar(false);
+
+  try {
+    const res = await fetch('/compare', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ url })
+    });
+    const data = await res.json();
+    clearInterval(iv); animateScanBar(true);
+    if (data.error) { showToast('Error: ' + data.error); return; }
+    renderCompare(data);
+  } catch(e) {
+    showToast('Network error');
+  }
+}
+
+function renderResult(data) {
+  const isSafe = data.status === 'safe';
+  const card = document.getElementById('resultCard');
+
+  // Badge
+  const badge = document.getElementById('verdictBadge');
+  badge.className = 'verdict-badge ' + data.status;
+  document.getElementById('verdictIcon').textContent = isSafe ? '✓' : '✗';
+  document.getElementById('verdictText').textContent = data.label;
+
+  // Label & URL
+  const lbl = document.getElementById('verdictLabel');
+  lbl.className = 'verdict-label ' + data.status;
+  lbl.textContent = data.label;
+  document.getElementById('verdictUrl').textContent = data.url;
+
+  // Meta
+  const meta = document.getElementById('verdictMeta');
+  meta.innerHTML = `
+    <div class="meta-item"><span class="meta-key">Model</span><span class="meta-val">${data.model}</span></div>
+    ${data.confidence !== null ? `<div class="meta-item"><span class="meta-key">Confidence</span><span class="meta-val">${data.confidence}%</span></div>` : ''}
+  `;
+
+  // Probability bars
+  if (data.phishing_prob !== null) {
+    const safePct = (100 - data.phishing_prob).toFixed(1);
+    const dangerPct = data.phishing_prob.toFixed(1);
+    setTimeout(() => {
+      document.getElementById('barSafe').style.width = safePct + '%';
+      document.getElementById('barDanger').style.width = dangerPct + '%';
+      document.getElementById('pctSafe').textContent = safePct + '%';
+      document.getElementById('pctDanger').textContent = dangerPct + '%';
+    }, 50);
+    document.getElementById('confSection').style.display = 'block';
+  } else {
+    document.getElementById('confSection').style.display = 'none';
+  }
+
+  // Flags
+  const flagsGrid = document.getElementById('flagsGrid');
+  if (data.flags && data.flags.length > 0) {
+    flagsGrid.innerHTML = data.flags.map((f, i) =>
+      `<div class="flag-chip" style="animation-delay:${i*0.06}s">${f.icon} ${f.text}</div>`
+    ).join('');
+  } else {
+    flagsGrid.innerHTML = `<div class="no-flags">✓ No suspicious indicators found</div>`;
+  }
+
+  // Features
+  const risky = ['has_ip','has_at','suspicious_tld','ssl_final_state','shortening_service','https_token','has_punycode'];
+  const featHtml = Object.entries(data.features).map(([k,v]) => {
+    const isRisky = risky.includes(k) && v > 0;
+    return `<div class="feat-item">
+      <span class="feat-name">${k}</span>
+      <span class="feat-val ${isRisky ? 'risky' : ''}">${typeof v === 'number' && !Number.isInteger(v) ? v.toFixed(3) : v}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('featuresBody').innerHTML = featHtml;
+  document.getElementById('featuresBody').classList.remove('open');
+  document.getElementById('featArrow').textContent = '▼';
+
+  card.classList.add('visible');
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderCompare(data) {
+  document.getElementById('compareUrl').textContent = data.url;
+  const tbody = document.getElementById('compareBody');
+  tbody.innerHTML = data.results.map(r => `
+    <tr class="${r.model === 'Random Forest' ? 'highlight-row' : ''}">
+      <td style="font-family:var(--font-mono);font-size:.83rem">
+        ${r.model === 'Random Forest' ? '👑 ' : ''}${r.model}
+      </td>
+      <td style="color:var(--safe);font-family:var(--font-mono)">${r.accuracy}%</td>
+      <td><span class="badge-sm ${r.status}">${r.label}</span></td>
+      <td style="font-family:var(--font-mono)">${r.confidence !== null ? r.confidence + '%' : '—'}</td>
+      <td style="font-family:var(--font-mono);color:${r.phishing_prob > 50 ? 'var(--danger)' : 'var(--safe)'}">
+        ${r.phishing_prob !== null ? r.phishing_prob + '%' : '—'}
+      </td>
+    </tr>
+  `).join('');
+
+  const card = document.getElementById('compareCard');
+  card.classList.add('visible');
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function toggleFeatures() {
+  const body = document.getElementById('featuresBody');
+  const arrow = document.getElementById('featArrow');
+  body.classList.toggle('open');
+  arrow.textContent = body.classList.contains('open') ? '▲' : '▼';
+}
+
+// Enter key support
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runScan();
+});
+</script>
+</body>
+</html>
